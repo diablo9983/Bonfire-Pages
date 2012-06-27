@@ -1,0 +1,62 @@
+#page-list {
+    padding: 15px 30px 15px 10px;
+}
+#page-list ul {
+    background: none repeat scroll 0 0 transparent;
+    margin-left: 1em !important;
+    list-style: none;
+}
+#page-list > ul {
+    margin-left: 0 !important;
+}
+#page-list a {
+    background: url("../images/off.png") no-repeat scroll left center transparent;
+    color: #5C5B5B;
+    font-size: 13px;
+    padding: 1px 1px 1px 15px;
+    text-decoration: none;
+}
+#page-list a:hover {
+    text-decoration: underline;
+}
+#page-list a.selected {
+    background: url("../images/on.png") no-repeat scroll left center transparent;
+    color: black;
+}
+.ui-nestedSortable-error {
+    background: none repeat scroll 0 0 #FBE3E4;
+    color: #8A1F11;
+}
+.sortable li {
+    margin: 5px 0;
+    padding-left: 20px;
+}
+.sortable li div {
+    background: url("../../../themes/admin_diablo/images/icons/drag_handle_dark.gif") no-repeat scroll 99% 5px #EBF0F3;
+    border-radius: 4px 4px 4px 4px;
+    cursor: move;
+    margin: 0;
+    padding: 5px 1px 5px 10px;
+}
+.sortable li div:hover {
+    background-color: #D7DBDD;
+    border-radius: 4px 4px 4px 4px;
+}
+.sortable li.placeholder {
+    background-color: #C2C0C0;
+    border-radius: 4px 4px 4px 4px;
+    margin-left: 20px;
+}
+.plus {
+    background: url("../images/more.png") no-repeat scroll 0 4px transparent;
+}
+.minus {
+    background: url("../images/less.png") no-repeat scroll 0 4px transparent;
+}
+#page-details {
+    padding:15px;
+}
+#page-details h5 {
+    margin: 0;
+    padding: 0;
+}
