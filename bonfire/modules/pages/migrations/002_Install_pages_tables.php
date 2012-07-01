@@ -12,21 +12,10 @@ class Migration_Install_pages_tables extends Migration {
         $this->dbforge->add_field('`page_id` INT(11) NOT NULL');
         $this->dbforge->add_field('`body` TEXT NOT NULL');
         $this->dbforge->add_field('`parsed` TEXT NOT NULL');
-        $this->dbforge->add_field('`type` SET(\'html\',\'markdown\',\'wysiwyg-advanced\',\'wysiwyg-simple\') NOT NULL');
+        $this->dbforge->add_field('`type` SET(\'html\',\'wysiwyg\') NOT NULL');
         $this->dbforge->add_field('`sort` INT(11) NOT NULL');
         $this->dbforge->add_key('id', TRUE);
         $this->dbforge->create_table('page_chunks',TRUE);
-        
-        // Create page layouts table
-        $this->dbforge->add_field('`id` INT(11) NOT NULL AUTO_INCREMENT');
-        $this->dbforge->add_field('`title` VARCHAR(60) NOT NULL');
-        $this->dbforge->add_field('`body` TEXT NOT NULL');
-        $this->dbforge->add_field('`css` TEXT');
-        $this->dbforge->add_field('`js` TEXT');
-        $this->dbforge->add_field('`theme_layout` VARCHAR(100) NOT NULL DEFAULT \'default\'');
-        $this->dbforge->add_field('`updated_on` INT(11) NOT NULL');
-        $this->dbforge->add_key('id', TRUE);
-        $this->dbforge->create_table('page_layouts',TRUE);
         
         // Create pages table
         $this->dbforge->add_field('`id` INT(11) NOT NULL AUTO_INCREMENT');
@@ -45,11 +34,12 @@ class Migration_Install_pages_tables extends Migration {
         $this->dbforge->add_field('`comments_enabled` INT(1) NOT NULL DEFAULT \'0\'');
         $this->dbforge->add_field('`status` ENUM(\'draft\',\'live\') NOT NULL DEFAULT \'draft\'');
         $this->dbforge->add_field('`created_on` INT(11) NOT NULL DEFAULT \'0\'');
-        $this->dbforge->add_field('`updated_on` INT(11) NOT NULL DEFAULT \'0\'');
+        $this->dbforge->add_field('`modified_on` INT(11) NOT NULL DEFAULT \'0\'');
         $this->dbforge->add_field('`restricted_to` VARCHAR(255) DEFAULT NULL');
         $this->dbforge->add_field('`is_home` INT(1) NOT NULL DEFAULT \'0\'');
         $this->dbforge->add_field('`strict_uri` TINYINT(1) NOT NULL DEFAULT \'1\'');
         $this->dbforge->add_field('`order` INT(11) NOT NULL DEFAULT \'0\'');
+        $this->dbforge->add_field('`page_template` VARCHAR(150) NOT NULL DEFAULT \'default\'');
         $this->dbforge->add_key('id', TRUE);
         $this->dbforge->create_table('pages',TRUE);
 	}

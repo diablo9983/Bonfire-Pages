@@ -4,6 +4,169 @@
 
 class Page_model extends MY_Model {
     
+    /**
+	 * Array containing the validation rules
+	 * @access public
+	 * @var array
+	 */
+	public $validate = array(
+		array(
+			'field' => 'title',
+			'label'	=> 'lang:content_title_label',
+			'rules'	=> 'trim|required|max_length[250]'
+		),
+		'slug' => array(
+			'field' => 'slug',
+			'label'	=> 'lang:content_slug_label',
+			'rules'	=> 'trim|required|alpha_dot_dash|max_length[250]|callback__check_slug'
+		),
+		array(
+			'field' => 'chunk_body[]',
+			'label'	=> 'lang:content_body_label',
+			'rules' => 'trim|required'
+		),
+		array(
+			'field' => 'page_template',
+			'label'	=> 'lang:cntent_page_template_label',
+			'rules'	=> 'trim'
+		),
+		array(
+			'field'	=> 'css',
+			'label'	=> 'lang:content_css_label',
+			'rules'	=> 'trim'
+		),
+		array(
+			'field'	=> 'js',
+			'label'	=> 'lang:content_js_label',
+			'rules'	=> 'trim'
+		),
+		array(
+			'field' => 'meta_title',
+			'label' => 'lang:pcontent_meta_title_label',
+			'rules' => 'trim|max_length[250]'
+		),
+		array(
+			'field'	=> 'meta_keywords',
+			'label' => 'lang:content_meta_keywords_label',
+			'rules' => 'trim|max_length[250]'
+		),
+		array(
+			'field'	=> 'meta_description',
+			'label'	=> 'lang:content_meta_description_label',
+			'rules'	=> 'trim'
+		),
+		array(
+			'field' => 'restricted_to[]',
+			'label'	=> 'lang:content_access_label',
+			'rules'	=> 'trim' // Add |required
+		),
+		array(
+			'field' => 'rss_enabled',
+			'label'	=> 'lang:content_rss_enabled_label',
+			'rules'	=> 'trim|numeric'
+		),
+		array(
+			'field' => 'comments_enabled',
+			'label'	=> 'lang:content_comments_enabled_label',
+			'rules'	=> 'trim|numeric'
+		),
+		array(
+			'field' => 'is_home',
+			'label'	=> 'lang:content_is_home_label',
+			'rules'	=> 'trim|numeric'
+		),
+		array(
+			'field' => 'strict_uri',
+			'label'	=> 'lang:content_strict_uri_label',
+			'rules'	=> 'trim|numeric'
+		),
+		array(
+			'field'	=> 'status',
+			'label'	=> 'lang:content_status_label',
+			'rules'	=> 'trim|alpha|required'
+		)/*
+		array(
+			'field' => 'navigation_group_id',
+			'label' => 'lang:pages.navigation_label',
+			'rules' => 'numeric'
+		)*/
+	);
+    
+    /**
+	 * Get a page by its URI
+	 *
+	 * @param string $uri The uri of the page.
+	 * @param bool $is_request Is this an http request or called from a plugin
+	 *
+	 * @return object
+	 */
+	public function get_by_uri($uri, $is_request = false)
+	{
+		// If the URI has been passed as a array, implode to create a string of uri segments
+		is_array($uri) && $uri = trim(implode('/', $uri), '/');
+
+		// $uri gets shortened so we save the original
+		$original_uri = $uri;
+		$page = false;
+		$i = 0;
+
+		while ( ! $page AND $uri AND $i < 15) /* max of 15 in case it all goes wrong (this shouldn't ever be used) */
+		{
+			$page = $this->db
+				->where('uri', $uri)
+				->limit(1)
+				->get('pages')
+				->row();
+
+			// if it's not a normal page load (plugin or etc. that is not cached)
+			// then we won't do our recursive search
+			if ( ! $is_request)
+			{
+				break;
+			}
+
+			// if we didn't find a page with that exact uri AND there's more than one segment
+			if ( ! $page AND strpos($uri, '/') !== false)
+			{
+				// pop the last segment off and we'll try again
+				$uri = preg_replace('@^(.+)/(.*?)$@', '$1', $uri);
+			}
+			// we didn't find a page and there's only one segment; it's going to 404
+			elseif ( ! $page)
+			{
+				break;
+			}
+			$i++;
+		}
+
+		if ($page)
+		{
+			// so we found a page but if strict uri matching is required and the unmodified
+			// uri doesn't match the page we fetched then we pretend it didn't happen
+			if ($is_request AND (bool)$page->strict_uri AND $original_uri !== $uri)
+			{
+				return false;
+			}
+
+			// things like breadcrumbs need to know the actual uri, not the uri with extra segments
+			$page->base_uri = $uri;
+		}
+
+		return $page;
+	}
+    
+    /**
+	 * Get the home page
+	 *
+	 * @return object
+	 */
+	public function get_home()
+	{
+		return $this->db
+			->where('is_home', 1)
+			->get('pages')
+			->row();
+	}
     
     /**
 	 * Build a multi-array of parent > children.
@@ -135,8 +298,8 @@ class Page_model extends MY_Model {
 			array_unshift($segments, $page->slug);
 		}
 		while ($page->parent_id > 0);
-
-		return $this->update($id, array('uri' => implode('/', $segments)), true);
+        
+		return $this->update($id, array('uri' => implode('/', $segments)));
 	}
 
 	/**
@@ -173,6 +336,155 @@ class Page_model extends MY_Model {
 		{
 			$this->reindex_descendants($page);
 		}
+	}
+    
+    /**
+	 * Create a new page
+	 *
+	 * @param array $input The page data to insert.
+	 * @param array $chunks The page chunks to insert.
+	 *
+	 * @return bool `true` on success, `false` on failure.
+	 */
+	public function create($input, $skip_validation = false)
+	{
+		$this->db->trans_start();
+
+		if ( ! empty($input['is_home']))
+		{
+			// Remove other homepages so this one can have the spot
+			$this->set_modified(false);
+			$this->update_where('is_home', 1, array('is_home' => 0));
+		}
+
+		// validate the data and insert it if it passes
+		$input['id'] = $this->insert(array(
+			'slug'				=> $input['slug'],
+			'title'				=> $input['title'],
+			'uri'				=> null,
+			'parent_id'			=> (int) $input['parent_id'],
+			'layout_id'			=> 0,//(int) $input['layout_id'],
+			'css'				=> isset($input['css']) ? $input['css'] : null,
+			'js'				=> isset($input['js']) ? $input['js'] : null,
+			'meta_title'    	=> isset($input['meta_title']) ? $input['meta_title'] : '',
+			'meta_keywords' 	=> isset($input['meta_keywords']) ? $input['meta_keywords'] : '',
+			'meta_description' 	=> isset($input['meta_description']) ? $input['meta_description'] : '',
+			'rss_enabled'		=> (int) ! empty($input['rss_enabled']),
+			'comments_enabled'	=> (int) ! empty($input['comments_enabled']),
+			'status'			=> $input['status'],
+			'created_on'		=> now(),
+			'restricted_to'		=> isset($input['restricted_to']) ? implode(',', $input['restricted_to']) : '0',
+			'strict_uri'		=> (int) ! empty($input['strict_uri']),
+			'is_home'			=> (int) ! empty($input['is_home']),
+			'order'				=> now()
+		),$skip_validation);
+             
+		// did it pass validation?
+		if ( ! $input['id']) return false;
+
+		$this->build_lookup($input['id']);
+
+		// now insert this page's chunks
+		$this->page_chunk_m->create($input);
+
+		// Add a Navigation Link
+        /*
+		if ($input['navigation_group_id'] > 0)
+		{
+			$this->load->model('navigation/navigation_m');
+			$this->navigation_m->insert_link(array(
+				'title'					=> $input['title'],
+				'link_type'				=> 'page',
+				'page_id'				=> $input['id'],
+				'navigation_group_id'	=> (int) $input['navigation_group_id']
+			));
+		}*/
+
+		$this->db->trans_complete();
+
+		return ($this->db->trans_status() === false) ? false : $input;
+	}
+    
+    /**
+	 * Update a Page
+	 *
+	 * @access public
+	 * @param int $id The ID of the page to update
+	 * @param array $input The data to update
+	 * @return void
+	*/
+	public function edit($id, $input)
+	{
+		$this->db->trans_start();
+
+		if ( ! empty($input['is_home']))
+		{
+			// Remove other homepages so this one can have the spot
+			$this->set_modified(false);
+			$this->update_where('is_home', 1, array('is_home' => 0));
+		}
+
+		// validate the data and update
+		$result = $this->update($id, array(
+			'slug'				=> $input['slug'],
+			'title'				=> $input['title'],
+			'uri'				=> null,
+			'parent_id'			=> (int) $input['parent_id'],
+			'layout_id'			=> 0,//(int) $input['layout_id'],
+			'css'				=> isset($input['css']) ? $input['css'] : null,
+			'js'				=> isset($input['js']) ? $input['js'] : null,
+			'meta_title'    	=> isset($input['meta_title']) ? $input['meta_title'] : '',
+			'meta_keywords' 	=> isset($input['meta_keywords']) ? $input['meta_keywords'] : '',
+			'meta_description' 	=> isset($input['meta_description']) ? $input['meta_description'] : '',
+			'rss_enabled'		=> (int) ! empty($input['rss_enabled']),
+			'comments_enabled'	=> (int) ! empty($input['comments_enabled']),
+			'status'			=> $input['status'],
+			'created_on'		=> now(),
+			'restricted_to'		=> isset($input['restricted_to']) ? implode(',', $input['restricted_to']) : '0',
+			'strict_uri'		=> (int) ! empty($input['strict_uri']),
+			'is_home'			=> (int) ! empty($input['is_home'])
+		));
+
+		// did it pass validation?
+		if ( ! $result) return false;
+
+		$input['id'] = $id;
+
+		$this->build_lookup($input['id']);
+
+		// now insert this page's chunks
+		$this->page_chunk_m->create($input);
+
+		$this->db->trans_complete();
+
+		return ($this->db->trans_status() === false) ? false : $input;
+	}
+    
+    /**
+	 * Delete a Page
+	 *
+	 * @param int $id The ID of the page to delete
+	 *
+	 * @return array|bool
+	 */
+	public function delete($id = 0)
+	{
+		$this->db->trans_start();
+
+		$ids = $this->get_descendant_ids($id);
+
+		$this->db->where_in('id', $ids);
+		$this->db->delete('pages');
+
+		//$this->db->where_in('page_id', $ids);
+		//$this->db->delete('navigation_links');
+		
+        $this->db->where_in('page_id', $ids);
+        $this->db->delete('page_chunks');		
+
+		$this->db->trans_complete();
+
+		return ($this->db->trans_status() !== false) ? $ids : false;
 	}
     
     /**

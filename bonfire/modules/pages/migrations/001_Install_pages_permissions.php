@@ -7,7 +7,8 @@ class Migration_Install_pages_permissions extends Migration {
 		array('name' => 'Pages.Content.View', 'description' => '', 'status' => 'active'),
         array('name' => 'Pages.Content.Create', 'description' => '', 'status' => 'active'),
         array('name' => 'Pages.Content.Edit', 'description' => '', 'status' => 'active'),
-        array('name' => 'Pages.Content.Delete', 'description' => '', 'status' => 'active')
+        array('name' => 'Pages.Content.Delete', 'description' => '', 'status' => 'active'),
+        array('name' => 'Pages.Content.PutLive', 'description' => '', 'status' => 'active'),
 	);
 
 	//--------------------------------------------------------------------

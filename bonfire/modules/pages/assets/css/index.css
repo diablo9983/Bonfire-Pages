@@ -56,7 +56,12 @@
 #page-details {
     padding:15px;
 }
-#page-details h5 {
-    margin: 0;
-    padding: 0;
+#page-details h2 {
+    margin: 0 0 5px;
+    padding: 0 0 5px;
+    line-height: 100%;
+    border-bottom: 1px solid #D6E6F0;
+}
+#page-details .page-details p {
+    margin-left: 15px;
 }
